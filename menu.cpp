@@ -68,7 +68,7 @@ void buttonCallback(unsigned long duration) {
         lastDebounceTime = currentTime;
 
         // Indiquer que le bouton vient d'être pressé
-        buttonRecentlyPressed = true;
+       // buttonRecentlyPressed = true;
 
         if (!menuActive) {
             menuActive = true;

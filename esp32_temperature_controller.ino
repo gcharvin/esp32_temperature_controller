@@ -37,8 +37,8 @@ const int pwmResolution = 8;
 
 // Thermistor settings
 int thermistorPin = 15;
-float divisorValue = 10000.0;
-float Bvalue = 3920.0;
+float divisorValue = 8400.0; // recalibrated using DHT22
+float Bvalue = 3920.0; // extracted from datsheet values : https://www.ovenind.com/pdf/datasheets/DS-TR136.pdf
 
 // Déclaration des paramètres
 float Setpoint;
@@ -250,6 +250,8 @@ void readThermistor() {
     
     if (voltage != 0) {
         float thermistorResistance = divisorValue * (3.3 / voltage - 1.0);
+
+       // Serial.println(thermistorResistance);
         
         if (thermistorResistance > 0) {
             float temp = 1.0 / (log(thermistorResistance / resistorValue) / Bvalue + 1.0 / 298.15) - 273.15;
