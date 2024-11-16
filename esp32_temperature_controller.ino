@@ -32,7 +32,7 @@ DHT dht(DHTPIN, DHTTYPE);
 // PWM settings
 const int mosfetPin = 5;
 const int pwmChannel = 0;
-const int pwmFrequency = 100; // with 5000Hz I had interference and poor thermistor reading !
+const int pwmFrequency = 500; // 100 % with 5000Hz I had interference and poor thermistor reading !
 const int pwmResolution = 8;
 
 // Thermistor settings
@@ -79,7 +79,7 @@ bool displayNeedsUpdate=true;
 void setupPWM();
 void setupOLED();
 void setupPID();
-void readThermistor();
+bool readThermistor();
 void updatePID();
 void debugPrint();
 
@@ -92,7 +92,6 @@ void setup() {
   // Setup OLED
   setupOLED();
 
-
   debugPrint("Get parameters");
   preferences.begin("my-app", false);
   for (int i = 0; i < numParameters; i++) {
@@ -102,7 +101,15 @@ void setup() {
   debugPrint("Init PID");
   myPID.SetTunings(Kp, Ki, Kd);
   myPID.SetOutputLimits(0, 255);
-  readThermistor();
+  bool error=readThermistor();
+
+  if (error) {
+    debugPrint("Thermistor sensor failed!");
+  } else {
+    debugPrint("Thermistor OK");
+  }
+
+
   myPID.Start(Input, 0, Setpoint);
 
   debugPrint("Setup Encoder");
@@ -136,49 +143,52 @@ void setup() {
   delay(1000);
 
 
-   updateDisplay();
+   updateDisplay(error);
 }
 
 
 void loop() {
-  
-  if (!initSuccess) return;
-  unsigned long currentTime = millis();
+    if (!initSuccess) return;
+    unsigned long currentTime = millis();
 
-  // Lire la thermistance et mettre à jour le PID, sauf si en mode d'édition
-  if (!menuActive || (menuActive && !editing)) {
-    
-    if (currentTime - lastPIDTime >= PIDInterval) {
-      lastPIDTime = currentTime;
-      readThermistor();
-      updatePID();
-      dhtTemperatureC = dht.readTemperature();
+    // Lire la thermistance et mettre à jour le PID, sauf si en mode d'édition
+    bool error = false;
+    if (!menuActive || (menuActive && !editing)) {
+        if (currentTime - lastPIDTime >= PIDInterval) {
+            lastPIDTime = currentTime;
+            error = readThermistor();
+            if (!error) {
+                updatePID();
+            } else {
+                // Forcer le PWM à 0% en cas d'erreur
+                Output = 0;
+                ledcWrite(mosfetPin, Output);
+            }
+            dhtTemperatureC = dht.readTemperature();
+        }
     }
-  }
 
-  // Gérer l'affichage et le menu
-  if (menuActive) {
-    if (editing) {
-      // Afficher le paramètre en cours d'édition
-       if (displayNeedsUpdate) {
-      showSingleParameter(editIndex);
-      displayNeedsUpdate = false;
-       }
+    // Gérer l'affichage et le menu
+    if (menuActive) {
+        if (editing) {
+            if (displayNeedsUpdate) {
+                showSingleParameter(editIndex);
+                displayNeedsUpdate = false;
+            }
+        } else {
+            if (displayNeedsUpdate) {
+                showMenu();
+                displayNeedsUpdate = false;
+            }
+        }
     } else {
-      // Afficher le menu
-       if (displayNeedsUpdate) {
-      showMenu();
-      displayNeedsUpdate = false;
-       }
+        if (currentTime - lastDisplayTime >= DisplayInterval) {
+            lastDisplayTime = currentTime;
+            updateDisplay(error); // Passer l'erreur à updateDisplay()
+        }
     }
-  } else {
-    // Affichage principal lorsque le menu est inactif
-    if (currentTime - lastDisplayTime >= DisplayInterval) {
-      lastDisplayTime = currentTime;
-      updateDisplay();
-    }
-  }
 }
+
 
 void debugPrint(const char* message) {
   if (DEBUG) {
@@ -236,52 +246,37 @@ void setupPID() {
   myPID.Start(25, 0, Setpoint);
 }
 
-
-#define NUM_SAMPLES 10  // Nombre de mesures à utiliser pour la moyenne
-
-float tempSamples[NUM_SAMPLES] = {0}; // Tableau pour stocker les dernières mesures
-int sampleIndex = 0;                  // Index pour insérer la prochaine mesure
-bool samplesFilled = false;           // Indicateur que le tableau est rempli
-
-void readThermistor() {
+bool readThermistor() {
     int adcValue = analogRead(thermistorPin);
-
     float voltage = adcValue * (3.3 / 4095.0);
-    
+
     if (voltage != 0) {
         float thermistorResistance = divisorValue * (3.3 / voltage - 1.0);
 
-       // Serial.println(thermistorResistance);
-        
         if (thermistorResistance > 0) {
             float temp = 1.0 / (log(thermistorResistance / resistorValue) / Bvalue + 1.0 / 298.15) - 273.15;
-            
-            if (temp>0) {
-            Input=temp;
-        }
-              // // Ajouter la nouvelle mesure dans le tableau
-              // tempSamples[sampleIndex] = temp;
-              // sampleIndex = (sampleIndex + 1) % NUM_SAMPLES;  // Incrémente l'index circulaire
 
-              // // Vérifie si le tableau est rempli au moins une fois
-              // if (sampleIndex == 0) {
-              //     samplesFilled = true;
-              // }
+            if (temp > 0) {
+                Input = temp;
 
-              // // Calculer la moyenne des mesures
-              // float sum = 0;
-              // int count = samplesFilled ? NUM_SAMPLES : sampleIndex;  // Si tableau non plein, utilise sampleIndex
-              // for (int i = 0; i < count; i++) {
-              //     sum += tempSamples[i];
-              // }
-              // Input = sum / count;  // Met à jour Input avec la moyenne
+                // Vérifiez si la température dépasse 45°C
+                if (temp > 45.0) {
+                    if (DEBUG) {
+                        Serial.println("Erreur : Température > 45°C !");
+                    }
+                    return true; // Erreur : température trop élevée
+                }
+            }
         }
+        return false; // Pas d'erreur
     } else {
         if (DEBUG) {
-            Serial.println("Thermistor: Tension est 0, veuillez vérifier !");
+            Serial.println("Thermistor: Tension est 0, erreur détectée !");
         }
+        return true; // Erreur : tension de la thermistance est 0
     }
 }
+
 
 
 

@@ -24,7 +24,7 @@ void showMenu();
 void showSingleParameter(int index);
 void adjustParameter(int index, int direction);
 void applyUpdatedParameters();
-void updateDisplay();
+void updateDisplay(bool error);
 void displayTextLine(const char* text);
 bool isOLEDConnected();
 

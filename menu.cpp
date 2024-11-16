@@ -181,12 +181,41 @@ void adjustParameter(int index, int direction) {
     }
 }
 
-void updateDisplay() {
-  display.clearDisplay();
+// void updateDisplay() {
+//   display.clearDisplay();
+//   display.setTextSize(2);
+//   display.setTextColor(SSD1306_WHITE);
+//   display.setCursor(0, 0);
+//   display.print(Input, 1);
+//  // float dhtTemperatureC = dht.readTemperature();
+//   display.setCursor(70, 0);
+//   if (isnan(dhtTemperatureC)) {
+//     display.print("Err");
+//   } else {
+//     display.print(dhtTemperatureC, 1);
+//   }
+//   display.setCursor(0, 25);
+//   display.print("Set: ");
+//   display.print(Setpoint, 1);
+//   int outputPercentage = (int)(Output / 255.0 * 100);
+//   display.setCursor(0, 50);
+//   display.print("PWM: ");
+//   display.print(outputPercentage);
+//   display.println("%");
+//   display.display();
+// }
+
+void updateDisplay(bool error) {
+      display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
+  if (error) {
+  display.print("Err"); 
+  } else {
   display.print(Input, 1);
+  }
+
  // float dhtTemperatureC = dht.readTemperature();
   display.setCursor(70, 0);
   if (isnan(dhtTemperatureC)) {
@@ -197,13 +226,26 @@ void updateDisplay() {
   display.setCursor(0, 25);
   display.print("Set: ");
   display.print(Setpoint, 1);
-  int outputPercentage = (int)(Output / 255.0 * 100);
+
+  int outputPercentage;
+
+   if (error) {
+  outputPercentage=0;  
+   } else {
+  outputPercentage = (int)(Output / 255.0 * 100);
+   }
+
   display.setCursor(0, 50);
   display.print("PWM: ");
   display.print(outputPercentage);
   display.println("%");
   display.display();
+
 }
+
+
+
+
 
 void displayTextLine(const char* text) {
     // Vérifie si on dépasse la hauteur de l'écran
