@@ -277,20 +277,31 @@ bool readThermistor() {
     }
 }
 
-
-
-
-
 void updatePID() {
-  Output = myPID.Run(Input);
-  ledcWrite(mosfetPin, Output);
-  if (DEBUG) {
-    Serial.print("Setpoint: ");
-    Serial.print(Setpoint);
-    Serial.print(" Input: ");
-    Serial.print(Input);
-    Serial.print(" Output: ");
-    Serial.println(Output);
-  }
+    // Mise à jour de la sortie PID
+    Output = myPID.Run(Input);
+    ledcWrite(mosfetPin, Output);
+
+    // Affichage des informations PID et des paramètres stockés sur une seule ligne
+    if (DEBUG) {
+        Serial.print("Setpoint: ");
+        Serial.print(Setpoint);
+        Serial.print(", Input: ");
+        Serial.print(Input);
+        Serial.print(", Output: ");
+        Serial.print(Output);
+
+        // Afficher les paramètres stockés
+        for (int i = 0; i < numParameters; i++) {
+            float storedValue = preferences.getFloat(parameters[i].name, parameters[i].defaultValue);
+            Serial.print(", ");
+            Serial.print(parameters[i].name);
+            Serial.print(": ");
+            Serial.print(storedValue);
+        }
+
+        // Terminer la ligne
+        Serial.println();
+    }
 }
 
