@@ -61,6 +61,24 @@ def close_application():
         ser.close()
     root.destroy()
 
+# Fonction pour mettre à jour la taille du buffer
+def update_buffer_size(event=None):
+    global buffer_size, setpoints, inputs, times
+    try:
+        # Lire la nouvelle taille du buffer entrée par l'utilisateur
+        new_size = int(buffer_size_entry.get())
+        if new_size > 0:  # Vérifier que la valeur est valide
+            buffer_size = new_size
+            # Réinitialiser les tampons avec la nouvelle taille
+            setpoints = deque(setpoints, maxlen=buffer_size)
+            inputs = deque(inputs, maxlen=buffer_size)
+            times = deque(times, maxlen=buffer_size)
+            status_label.config(text=f"Taille du buffer mise à jour : {buffer_size}", fg="blue")
+        else:
+            raise ValueError  # Lancer une exception si la taille n'est pas positive
+    except ValueError:
+        status_label.config(text="Entrée invalide pour la taille du buffer", fg="red")
+
 # Fonction pour mettre à jour les valeurs des paramètres
 def update_parameters(param, value):
     global ser
@@ -82,7 +100,20 @@ ax.set_xlabel("Temps (échantillons)")
 ax.set_ylabel("Valeur")
 ax.legend()
 
-# Fonction pour mettre à jour le graphique et les paramètres
+def send_parameter(param_name, value):
+    global ser
+    try:
+        # Construire la commande
+        command = f"{param_name}: {value}\n"
+        if ser and ser.is_open:
+            ser.write(command.encode('utf-8'))
+            status_label.config(text=f"Paramètre envoyé : {command.strip()}", fg="blue")
+        else:
+            status_label.config(text="Erreur : Port série non connecté", fg="red")
+    except Exception as e:
+        status_label.config(text=f"Erreur d'envoi : {str(e)}", fg="red")
+
+
 def update_plot(frame):
     global startup_time, time_counter, parameters, parameter_widgets
     if ser and ser.is_open:
@@ -124,7 +155,7 @@ def update_plot(frame):
                         input_entry.pack(side=tk.LEFT, padx=5)
 
                         # Associer un événement pour l'envoi de la nouvelle valeur
-                        input_entry.bind("<Return>", lambda event, k=key, e=input_entry: update_parameters(k, e.get()))
+                        input_entry.bind("<Return>", lambda event, k=key, e=input_entry: send_parameter(k, e.get()))
 
                         parameter_widgets[key] = {
                             "readonly": readonly_var,
@@ -139,43 +170,35 @@ def update_plot(frame):
                 input_value = float(parts[1].split(":")[1].strip())  # Deuxième valeur correspond à Input
                 time_counter += 1
 
+                # Vérification des limites de température
+                if input_value > 45:
+                    status_label.config(text=f"Erreur : Température trop élevée ({input_value:.2f}°C)", fg="red")
+                elif input_value < 0:
+                    status_label.config(text=f"Erreur : Température négative ({input_value:.2f}°C)", fg="red")
+                else:
+                    status_label.config(text="Température normale", fg="green")
+
                 setpoints.append(setpoint)
                 inputs.append(input_value)
                 times.append(time_counter)
 
-            # Ajuster les limites des axes dynamiquement
-            if times:
+                # Mise à jour des données pour le graphique
+                line_setpoint.set_data(times, setpoints)
+                line_input.set_data(times, inputs)
+
+                # Ajuster les limites des axes dynamiquement
                 ax.set_xlim(times[0], times[-1])  # Gérer l'axe X
-            if setpoints or inputs:
-                min_y = min(min(setpoints, default=0), min(inputs, default=0))
-                max_y = max(max(setpoints, default=0), max(inputs, default=0))
-                padding = (max_y - min_y) * 0.1  # Ajout d'une marge de 10%
-                ax.set_ylim(min_y - padding, max_y + padding)
+                if setpoints or inputs:
+                    min_y = min(min(setpoints, default=0), min(inputs, default=0))
+                    max_y = max(max(setpoints, default=0), max(inputs, default=0))
+                    padding = (max_y - min_y) * 0.1  # Ajout d'une marge de 10%
+                    ax.set_ylim(min_y - padding, max_y + padding)
 
-            # Mise à jour du graphique
-            line_setpoint.set_data(times, setpoints)
-            line_input.set_data(times, inputs)
-            canvas.draw()
-
+                canvas.draw()
+            else:
+                output_text.insert(tk.END, f"Ligne inattendue: {line}\n")
         except (UnicodeDecodeError, ValueError) as e:
             status_label.config(text=f"Erreur de lecture : {str(e)}", fg="red")
-
-def update_buffer_size(event=None):
-    global buffer_size, setpoints, inputs, times
-    try:
-        # Lire la nouvelle taille du buffer entrée par l'utilisateur
-        new_size = int(buffer_size_entry.get())
-        if new_size > 0:  # Vérifier que la valeur est valide
-            buffer_size = new_size
-            # Réinitialiser les tampons avec la nouvelle taille
-            setpoints = deque(setpoints, maxlen=buffer_size)
-            inputs = deque(inputs, maxlen=buffer_size)
-            times = deque(times, maxlen=buffer_size)
-            status_label.config(text=f"Taille du buffer mise à jour : {buffer_size}", fg="blue")
-        else:
-            raise ValueError  # Lancer une exception si la taille n'est pas positive
-    except ValueError:
-        status_label.config(text="Entrée invalide pour la taille du buffer", fg="red")
 
 
 # Fonction pour démarrer l'animation

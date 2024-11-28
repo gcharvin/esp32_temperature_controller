@@ -159,27 +159,27 @@ void showSingleParameter(int index) {
 void applyUpdatedParameters() {
     // Met à jour les réglages du PID
     myPID.SetTunings(Kp, Ki, Kd);     // Applique Kp, Ki, et Kd mis à jour
-   myPID.Start(Input, Output, Setpoint);
+    myPID.Start(Input, Output, Setpoint);
 }
 
 void adjustParameter(int index, int direction) {
     if (index >= 0 && index < numParameters) {
-        // Ajuste la valeur pointée par le paramètre
+        // Ajuster la valeur pointée par le paramètre
         float newValue = *(parameters[index].value) + direction * parameters[index].increment;
         newValue = constrain(newValue, parameters[index].minValue, parameters[index].maxValue);
         *(parameters[index].value) = newValue;
 
-        // Sauvegarde la nouvelle valeur dans les préférences
+        // Sauvegarder la nouvelle valeur dans les préférences
         preferences.putFloat(parameters[index].name, newValue);
 
         // Si le paramètre modifié est l'un des paramètres PID, appliquer les changements
         if (parameters[index].name == "Kp" || parameters[index].name == "Ki" || 
-            parameters[index].name == "Kd" || parameters[index].name == "Setpoint" || 
-            parameters[index].name == "resistorValue") {
+            parameters[index].name == "Kd" || parameters[index].name == "Setpoint") {
             applyUpdatedParameters();
         }
     }
 }
+
 
 // void updateDisplay() {
 //   display.clearDisplay();
@@ -242,9 +242,6 @@ void updateDisplay(bool error) {
   display.display();
 
 }
-
-
-
 
 
 void displayTextLine(const char* text) {

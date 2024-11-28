@@ -82,8 +82,11 @@ void setupPID();
 bool readThermistor();
 void updatePID();
 void debugPrint();
+void handleSerialCommand();
 
 bool initSuccess = true;
+String serialBuffer = ""; // Tampon pour stocker les caractères reçus
+
 
 void setup() {
   Serial.begin(9600);
@@ -146,10 +149,14 @@ void setup() {
    updateDisplay(error);
 }
 
-
 void loop() {
     if (!initSuccess) return;
     unsigned long currentTime = millis();
+
+    // Gérer les commandes reçues sur le port série
+    if (Serial.available() > 0) {
+        handleSerialCommand();
+    }
 
     // Lire la thermistance et mettre à jour le PID, sauf si en mode d'édition
     bool error = false;
@@ -188,6 +195,7 @@ void loop() {
         }
     }
 }
+
 
 
 void debugPrint(const char* message) {
@@ -304,4 +312,84 @@ void updatePID() {
         Serial.println();
     }
 }
+
+void handleSerialCommand() {
+    while (Serial.available() > 0) {
+        char receivedChar = Serial.read(); // Lire un caractère
+        if (receivedChar == '\n') {
+            // Une commande complète a été reçue
+            serialBuffer.trim(); // Supprimer les espaces inutiles
+
+            if (serialBuffer.length() > 0) {
+                // Traiter la commande reçue
+                processCommand(serialBuffer);
+            }
+
+            // Réinitialiser le buffer pour la prochaine commande
+            serialBuffer = "";
+        } else {
+            // Ajouter le caractère au buffer
+            serialBuffer += receivedChar;
+        }
+    }
+}
+
+void processCommand(String command) {
+    // Rechercher le délimiteur ":"
+    int delimiterIndex = command.indexOf(':');
+    if (delimiterIndex == -1) {
+        Serial.println("Commande invalide. Format attendu : paramname : value");
+        return;
+    }
+
+    // Extraire le nom du paramètre et la nouvelle valeur
+    String paramName = command.substring(0, delimiterIndex);
+    String paramValueStr = command.substring(delimiterIndex + 1);
+    paramName.trim();
+    paramValueStr.trim();
+
+    // Convertir la valeur en float
+    float paramValue = paramValueStr.toFloat();
+
+    // Rechercher le paramètre dans le tableau
+    for (int i = 0; i < numParameters; i++) {
+        if (paramName == parameters[i].name) {
+            // Vérifier si la valeur est dans les limites définies
+            if (paramValue >= parameters[i].minValue && paramValue <= parameters[i].maxValue) {
+                // Mettre à jour la valeur du paramètre
+                *(parameters[i].value) = paramValue;
+
+                // Sauvegarder la nouvelle valeur dans les préférences
+                preferences.putFloat(parameters[i].name, paramValue);
+
+                // Si c'est un paramètre PID ou Setpoint, appliquer les changements immédiatement
+                if (paramName == "Kp" || paramName == "Ki" || paramName == "Kd" || paramName == "Setpoint") {
+                    applyUpdatedParameters();
+                }
+
+                // Confirmer la mise à jour
+                Serial.print("Paramètre ");
+                Serial.print(paramName);
+                Serial.print(" mis à jour avec la valeur : ");
+                Serial.println(paramValue);
+
+                return;
+            } else {
+                Serial.print("Valeur hors limites pour ");
+                Serial.print(paramName);
+                Serial.print(". Min : ");
+                Serial.print(parameters[i].minValue);
+                Serial.print(", Max : ");
+                Serial.println(parameters[i].maxValue);
+                return;
+            }
+        }
+    }
+
+    // Si le paramètre n'est pas trouvé
+    Serial.print("Paramètre inconnu : ");
+    Serial.println(paramName);
+}
+
+
 
