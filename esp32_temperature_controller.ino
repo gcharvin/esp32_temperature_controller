@@ -60,7 +60,7 @@ Parameter parameters[] = {
 const int numParameters = sizeof(parameters) / sizeof(Parameter);
 
 // PID controller
-PID_v2 myPID(Kp, Ki, Kd, PID::Direct);
+PID_v2 myPID( Kp, Ki, Kd, PID::Direct);
 
 // Déclaration des broches pour l'encodeur
 #define encoder0PinA  4  // Pin A de l'encodeur
@@ -247,6 +247,8 @@ debugPrint("Init OLED");
 }
 
 void setupPID() {
+  pinMode(mosfetPin, OUTPUT);
+  
   if (DEBUG) {
     Serial.println("Init PID");
   }
@@ -368,14 +370,14 @@ void processCommand(String command) {
                 }
 
                 // Confirmer la mise à jour
-                Serial.print("Paramètre ");
+                Serial.print("Parametre ");
                 Serial.print(paramName);
-                Serial.print(" mis à jour avec la valeur : ");
+                Serial.print(" updated with value : ");
                 Serial.println(paramValue);
 
                 return;
             } else {
-                Serial.print("Valeur hors limites pour ");
+                Serial.print("Value is outside bounds: ");
                 Serial.print(paramName);
                 Serial.print(". Min : ");
                 Serial.print(parameters[i].minValue);

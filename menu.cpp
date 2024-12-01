@@ -157,10 +157,35 @@ void showSingleParameter(int index) {
 }
 
 void applyUpdatedParameters() {
-    // Met à jour les réglages du PID
-    myPID.SetTunings(Kp, Ki, Kd);     // Applique Kp, Ki, et Kd mis à jour
+    // Forcer la sortie à zéro
+    Output = 0;
+
+    // Réinitialiser les paramètres PID
+    myPID.SetTunings(Kp, Ki, Kd);
+    myPID.SetOutputLimits(-1, 0); // artificially resests the integrator
+    myPID.SetOutputLimits(0, 255);
+   //myPID.SetMode(MANUAL);
+   // myPID.SetMode(AUTOMATIC); // reini
+    // Redémarrer le PID avec les paramètres actuels
     myPID.Start(Input, Output, Setpoint);
+
+    // Afficher un message pour confirmer la réinitialisation
+    Serial.println("PID réinitialisé avec les nouveaux paramètres.");
+    Serial.print("Kp: "); Serial.print(Kp);
+    Serial.print(", Ki: "); Serial.print(Ki);
+    Serial.print(", Kd: "); Serial.print(Kd);
+    Serial.print(", Setpoint: "); Serial.println(Setpoint);
+
+    // Vérifier si Output est bien nul
+    if (Output == 0) {
+        Serial.println("Sortie PID réinitialisée à zéro.");
+    } else {
+        Serial.print("Avertissement : Sortie PID non nulle (");
+        Serial.print(Output);
+        Serial.println(")");
+    }
 }
+
 
 void adjustParameter(int index, int direction) {
     if (index >= 0 && index < numParameters) {
@@ -179,7 +204,6 @@ void adjustParameter(int index, int direction) {
         }
     }
 }
-
 
 // void updateDisplay() {
 //   display.clearDisplay();
@@ -240,9 +264,7 @@ void updateDisplay(bool error) {
   display.print(outputPercentage);
   display.println("%");
   display.display();
-
 }
-
 
 void displayTextLine(const char* text) {
     // Vérifie si on dépasse la hauteur de l'écran
